@@ -1,6 +1,6 @@
 import datasetTest
 import dataset25Artists
-n = 1
+n = 2
 ignore = []
 
 artists = []
@@ -24,7 +24,6 @@ def extractWordFeatures(n):
     You may assume that n >= 1.
     '''
     def extract(x):
-        # BEGIN_YOUR_CODE (our solution is 6 lines of code, but don't worry if you deviate from this)
         x_list = x.split(' ')
         result = {}
         for i in range(len(x_list)-n+1):
@@ -39,13 +38,15 @@ def extractWordFeatures(n):
 	            else:
 	                result[gram] = 1
         return result
-        # END_YOUR_CODE
     return extract
 
 train_x = []
 train_y = []
 test_x = []
 test_y = []
+
+train_examples = []
+test_examples = []
 
 featureExtractor = extractWordFeatures(n)
 
@@ -57,10 +58,12 @@ for example_string in original_list:
         artists.append(artist)
     lyrics = (" ").join(example_string.split(" ")[1:])
     if count < 4:
+        train_examples.append([artist, lyrics])
         train_x.append(featureExtractor(lyrics))
         train_y.append(artists.index(artist))
         count += 1
     else: 
+        test_examples.append([artist, lyrics])
         test_x.append(featureExtractor(lyrics))
         test_y.append(artists.index(artist))
         count = 0
