@@ -7,10 +7,9 @@ import sklearn.feature_extraction
 numIters = 20
 eta = 0.01
 lamb = 0.1
-
 weights_all = []
 
-def learnPredictor(trainExamples, featureExtractor, numIters, eta, lamb):
+def learnPredictor(x, y, featureExtractor, numIters, eta, lamb):
     '''
     Given |trainExamples| and |testExamples| (each one is a list of (x,y)
     pairs), a |featureExtractor| to apply to x, and the number of iterations to
@@ -20,47 +19,44 @@ def learnPredictor(trainExamples, featureExtractor, numIters, eta, lamb):
     weights = {}  # feature => weight
 
     for i in range(numIters):
-        for c in trainExamples:
-            x = c[1]
-            phi = featureExtractor(x)
-            y = c[0]
+        for j in range(len(x)):
+            phi = x[j]
+            y_i = y[j]
             gradient = 0
-            margin = dotProduct(phi, weights)*y
+            margin = dotProduct(phi, weights)*y_i
             if margin < 1:
-                gradient = -sum(phi.values())*y
+                gradient = -sum(phi.values())*y_i
             for f in phi:
                 for j in range(phi[f]):
                     if f in weights:
-                        weights[ f] -= eta * (gradient + lamb * weights[f])
+                        weights[f] -= eta * (gradient + lamb * weights[f])
                     else:
                         weights[f] = - eta * gradient
     return weights
 
 #returns predicted artist
-def predict_artist(lyrics):
+def predict_artist(phi):
     highest_score_index = 0
     highest_score = float('-inf')
     for i, weights in enumerate(weights_all):
-        phi = featureExtractor(lyrics)
         score = dotProduct(phi, weights)
         if score > highest_score:
             highest_score_index = i
             highest_score = score
-    artist = artists[highest_score_index]
-    #print 'highest score: '+str(highest_score)+ ' for artist '+str(artist)
-    return artist
+    #print 'highest score: '+str(highest_score)+ ' for artist '+str(artists[highest_score_index])
+    return highest_score_index
 
-def evaluatePredictors(examples):
+def evaluatePredictors(x, y):
     error = 0
-    for example in examples:
-        predicted_artist = predict_artist(example[1])
-        true_artist = example[0]
-        if predicted_artist != true_artist:
+    for i in range(len(x)):
+        predicted_y = predict_artist(x[i])
+        true_y = y[i]
+        if predicted_y != true_y:
             #print 'prediction was incorrect'
             error += 1
         #else:
             #print 'prediction was correct'
-    return 1.0 * error / len(examples)
+    return 1.0 * error / len(x)
 
 '''
 print "running using sklearn's SGDClassifier..."
@@ -91,19 +87,16 @@ print 'running using custom implementation...'
 for i in range(len(artists)):
     print 'training for artist '+str(artists[i])
 
-    #edit examples for particular artist (+1 if by artist i, -1 if not)
-    new_train_examples = []
-    for train_example in train_examples:
-        new_example = []
-        if train_example[0] == artists[i]:
-            new_example.append(1)
+    #edit y for particular artist (+1 if by artist i, -1 if not)
+    new_train_y = []
+    for y_i in train_y:
+        if y_i == i:
+            new_train_y.append(1)
         else:
-            new_example.append(-1)
-        new_example.append(train_example[1])
-        new_train_examples.append(new_example)
+            new_train_y.append(-1)
 
-    weights_all.append(learnPredictor(new_train_examples, featureExtractor, numIters, eta, lamb))
-print 'SGD predicted artist on train examples with '+str(1.0-evaluatePredictors(train_examples))+' accuracy'
-print 'SGD predicted artist on test examples with '+str(1.0-evaluatePredictors(test_examples))+' accuracy'
+    weights_all.append(learnPredictor(train_x, new_train_y, featureExtractor, numIters, eta, lamb))
+print 'SGD predicted artist on train examples with '+str(1.0-evaluatePredictors(train_x, train_y))+' accuracy'
+print 'SGD predicted artist on test examples with '+str(1.0-evaluatePredictors(test_x, test_y))+' accuracy'
 
 
