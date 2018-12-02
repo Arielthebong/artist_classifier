@@ -1,5 +1,8 @@
 from util import *
 
+train_x += val_x
+train_y += val_y
+
 #for laplace smoothing; only applies to gram probs not artist probs
 pseudocount = 0.05
 
@@ -77,8 +80,8 @@ def evaluatePredictor(x, y):
 		assert max_artist_index != -1
 		if y[i] != max_artist_index:
 			errors += 1
-	return 1-(1.0*errors/len(x))
+	return (1.0*errors/len(x))
 		#else:
 			#print 'correctly predicted artist '+str(artists[max_artist_index])+' with probability '+str(max_artist_prob)
-print 'naive bayes predicted artists in train set with '+str(evaluatePredictor(train_x, train_y))+' accuracy'
-print 'naive bayes predicted artists in test set with '+str(evaluatePredictor(test_x, test_y))+' accuracy'
+print 'naive bayes predicted artists in train set with '+str(evaluatePredictor(train_x, train_y))+' error'
+print 'naive bayes predicted artists in test set with '+str(evaluatePredictor(test_x, test_y))+' errors'
