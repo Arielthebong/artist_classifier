@@ -4,57 +4,89 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.svm import LinearSVC
 import sklearn.feature_extraction
 from matplotlib import pyplot as plt
+from random import shuffle
+from collections import defaultdict
+import gensim 
+from gensim.models import Word2Vec
+import math
 
 numIters = 20
 eta = 0.01
-lamb = 0.5
-weights_all = [{} for _ in range(len(artists))]
+lamb = 0.5  
+weights_all = []
+
+artist_correct = [0] * len(artists)
+artist_totals = [0] * len(artists)
+artist_false_positives = [0] * len(artists)
+
+if use_word_embedding_model:
+    weights_all = [[0]*word_embedding_dim for _ in range(len(artists))]
+else:
+    weights_all = [defaultdict(int) for _ in range(len(artists))]
 
 def learnPredictor(weights, x, y, featureExtractor, eta, lamb):
-    '''
-    Given |trainExamples| and |testExamples| (each one is a list of (x,y)
-    pairs), a |featureExtractor| to apply to x, and the number of iterations to
-    train |numIters|, the step size |eta|, returns the weight vector (sparse
-    feature vector) learned.
-    '''
-    #weights = {}  # feature => weight
-
     for j in range(len(x)):
         phi = x[j]
         y_i = y[j]
-        gradient = 0
-        margin = dotProduct(phi, weights)*y_i
+        dp = 0
+        if use_word_embedding_model:
+            for i in range(word_embedding_dim):
+                dp += phi[i] * weights[i]
+        else:
+            dp = dotProduct(phi, weights)
+        margin = dp*y_i
         if margin < 1:
-            gradient = -sum(phi.values())*y_i
-        for f in phi:
-            for j in range(phi[f]):
-                if f in weights:
+            if use_word_embedding_model:
+                for i in range(word_embedding_dim):
+                    gradient = -phi[i] * y_i
+                    weights[i] -= eta * gradient
+            else:
+                for f in phi:
+                    gradient = -phi[f] * y_i
                     weights[f] -= eta * (gradient + lamb * weights[f])
-                else:
-                    weights[f] = - eta * gradient
 
 #returns predicted artist
 def predict_artist(phi):
     highest_score_index = 0
     highest_score = float('-inf')
     for i, weights in enumerate(weights_all):
-        score = dotProduct(phi, weights)
+        score = 0
+        if use_word_embedding_model:
+            for j in range(word_embedding_dim):
+                score += phi[j] * weights[j]
+        else:
+            score = dotProduct(phi, weights)
         if score > highest_score:
             highest_score_index = i
             highest_score = score
     #print 'highest score: '+str(highest_score)+ ' for artist '+str(artists[highest_score_index])
     return highest_score_index
 
-def evaluatePredictors(x, y):
+def evaluatePredictors(x, y, print_incorrect_pairs=False, update_correct_counts=False):
+    incorrect_pairs = defaultdict(int)
     error = 0
     for i in range(len(x)):
         predicted_y = predict_artist(x[i])
         true_y = y[i]
         if predicted_y != true_y:
+            if print_incorrect_pairs:
+                pair = [artists[predicted_y], artists[true_y]]
+                pair.sort()
+                incorrect_pairs[tuple(pair)] += 1
             #print 'prediction was incorrect'
             error += 1
+        else:
+            if update_correct_counts:
+                artist_correct[predicted_y] += 1
+        if update_correct_counts:
+            artist_totals[true_y] += 1
         #else:
             #print 'prediction was correct'
+    if print_incorrect_pairs: 
+        d_view = [ (v,k) for k,v in incorrect_pairs.iteritems() ]
+        d_view.sort(reverse=True) # natively sort tuples by first element
+        for v,k in d_view:
+            print "%s: %d" % (k,v)
     return 1.0 * error / len(x)
 
 '''
@@ -83,9 +115,16 @@ evaluatePredictor('sklearn', 'test', test_y, predicted_artist_indices_test)
 
 print 'running using custom implementation...'
 '''
+
+
+
 train_errors = []
 val_errors = []
 test_errors = []
+
+if use_word_embedding_model: 
+    train_x, val_x, test_x = x_sets_as_word_embeddings(train_x, val_x, test_x)
+
 for j in range(numIters):
     print 'iteration '+str(j)
     for i in range(len(artists)):
@@ -93,7 +132,8 @@ for j in range(numIters):
 
         #edit y for particular artist (+1 if by artist i, -1 if not)
         new_train_y = []
-        for y_i in train_y:
+        new_train_x = []
+        for k, y_i in enumerate(train_y):
             if y_i == i:
                 new_train_y.append(1)
             else:
@@ -106,7 +146,20 @@ for j in range(numIters):
     val_errors.append(val_error)
     test_error = evaluatePredictors(test_x, test_y)
     test_errors.append(test_error)
+
+    #shuffle training data
+    shuffled_indices = range(len(train_x))
+    shuffle(shuffled_indices)
+    shuffled_train_x = []
+    shuffled_train_y = []
+    for i in shuffled_indices:
+        shuffled_train_x.append(train_x[i])
+        shuffled_train_y.append(train_y[i])
+    train_x = shuffled_train_x
+    train_y = shuffled_train_y
     
+
+test_error = evaluatePredictors(test_x, test_y, print_incorrect_pairs, print_correct_counts)
 print 'training error: '+str(train_error)
 print 'val error: '+str(val_error)
 print 'test error: '+str(test_error)
@@ -121,3 +174,11 @@ plt.title('Error Rate over Iterations for SVM with N='+str(n))
 plt.legend()
 plt.show()
 
+if print_correct_counts:
+    print 'artists in order of decreasing percentage of appearances in test set that are correctly predicted:'
+    sort_this = []
+    for i in range(len(artists)):
+        sort_this.append((100.0*artist_correct[i]/artist_totals[i],artists[i]))
+    sort_this.sort(reverse=True)
+    for ranked_artist in sort_this:
+        print ranked_artist[1]+': '+str(ranked_artist[0])+'%'
