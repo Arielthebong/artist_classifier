@@ -93,7 +93,7 @@ def create_sets(m, original_list, use_doc_embedding_model=False, select_artists_
     return song_tokens, (train_x, train_y, val_x, val_y, test_x, test_y)
 
 def getWord2VecDict():
-    model = Word2Vec.load('word_embedding_models/all_songs_dataset_skip_gram_n=1_mc=5.model')
+    model = Word2Vec.load('word_embedding_models/all_songs_dataset_skip_gram_n=1_mc=1.model')
     WordVectorz=dict(zip(model.wv.index2word,model.wv.vectors))
     return WordVectorz
 
